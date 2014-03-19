@@ -6,6 +6,7 @@ public class Inspector {
 	public Inspector(){}
 	
 	public void inspect(Object o){
+		
 		String className = o.getClass().getName();
 		String fields ="";
 		String methodsString = "";
