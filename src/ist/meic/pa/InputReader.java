@@ -6,6 +6,6 @@ public class InputReader {
 	
 	public static void main(String[] args){
 		
-		new Inspector().inspect(new E());	
+		new ist.meic.pa.Inspector().inspect(new E());	
 	}
 }
