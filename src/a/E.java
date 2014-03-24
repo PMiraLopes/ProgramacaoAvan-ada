@@ -1,10 +1,10 @@
 package a;
 
 public class E extends B {
-	boolean f;
+	Boolean f;
 	public int g(int h) {
 		return d+h;
 	}
 	public static long i = 10L;
-
+	
 }
