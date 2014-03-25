@@ -1,8 +1,7 @@
 package a;
 
 public class B {
-	private String c = "Hello World";
+	private String c = "TESTE";
 	public Teste t;
-	public int d;
-
+	public Integer d = 10;
 }

@@ -6,7 +6,6 @@ public class Teste {
 	private String teste = "OLAAAAA!";
 	public long f = 10L;
 	
-	public Teste () {
-		
+	public Teste (int qqcoisa) {
 	}
 }
