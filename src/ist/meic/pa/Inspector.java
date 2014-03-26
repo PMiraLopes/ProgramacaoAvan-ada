@@ -20,7 +20,7 @@ public class Inspector {
 
 	public void inspect(Object object) {
 
-		System.err.println("----- OBJECT INSPECTOR ('h' for help) -----\n");
+		System.err.println("------ OBJECT INSPECTOR ('h' for help) ------\n");
 		
 		scanner = new Scanner(System.in);
 		objectHistory = new ArrayList<Object>();
@@ -169,10 +169,8 @@ public class Inspector {
 		return methods;
 	}
 	
-	
-
 	/**
-	 * Creates an object with the request value and type 
+	 * Creates an object with the requested value and type 
 	 * 
 	 * @param expectedType The object expected type
 	 * @param value The object value
@@ -197,8 +195,7 @@ public class Inspector {
 	}
 
 	/**
-	 * Invokes the method with the name and arguments passed
-	 * as function arguments.
+	 * Invokes the method with the requested name and arguments
 	 * 
 	 * @param args The method name and arguments
 	 */
@@ -263,7 +260,7 @@ public class Inspector {
 			System.err.println(objectInstance + " is an instance of " + objectInstance.getClass());
 		}	
 
-		System.err.println("\n-----FIELDS-----");
+		System.err.println("\n------ FIELDS ------");
 
 		//Print object fields
 		for(Field field : objectFields) {	
@@ -280,7 +277,7 @@ public class Inspector {
 			} 
 		}
 		
-		System.err.println("\n-----METHODS-----");
+		System.err.println("\n------ METHODS ------");
 		
 		//Print object methods
 		for(Method method: objectMethods) {
@@ -293,21 +290,20 @@ public class Inspector {
 	 */
 	private void printHelp() {
 		
-		System.err.println("----- AVAILABLE COMMANDS -----");
-		System.err.println(" q ------------- quit");
-		System.err.println(" i name -------- inspect name");
-		System.err.println(" m name value -- modifies value of name");
-		System.err.println(" c name values - calls name method");
-		System.err.println(" w ------------- get the inspected object list");
-		System.err.println(" h ------------- help");	
-		System.err.println("------------------------------\n");
+		System.err.println("---------------- AVAILABLE COMMANDS --------------");
+		System.err.println(" q ............. quit");
+		System.err.println(" i name ........ inspect name");
+		System.err.println(" m name value .. modifies value of name");
+		System.err.println(" c name values . calls name method");
+		System.err.println(" w ............. get the inspected object history");
+		System.err.println("--------------------------------------------------\n");
 	}
 
 	/**
 	 * Enumerates every Java primitive type.
 	 * 
 	 * Contains an abstract method overrided by each Type in order 
-	 * to convert a specific argument to the corresponding type.
+	 * to convert a specific argument to the corresponding object.
 	 */
 	public enum Type {
 
@@ -356,7 +352,7 @@ public class Inspector {
 		CHAR {
 			@Override
 			public Object convertType(String value) {
-				return value.charAt(1); //First index is for "'"
+				return value.charAt(0);
 			}	
 		},
 
