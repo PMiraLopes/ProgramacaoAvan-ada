@@ -46,7 +46,9 @@ public class Inspector {
 				String name = scanner.next();
 
 				try {
-					objectHistory.add(objectInstance);
+					if(!objectHistory.contains(objectInstance)) {
+						objectHistory.add(objectInstance);
+					}
 
 					objectInstance = this.getField(name).get(objectInstance);
 					objectFields = this.getFields();
