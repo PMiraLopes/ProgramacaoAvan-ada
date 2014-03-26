@@ -4,7 +4,6 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.Scanner;
 
 public class Inspector {
@@ -14,17 +13,21 @@ public class Inspector {
 
 	private Object objectInstance;
 	private ArrayList<Object> objectHistory;
-	private HashMap<String,Field> objectFields;
+	private ArrayList<Field> objectFields;
+	private ArrayList<Method> objectMethods;
 
 	public Inspector(){}
 
 	public void inspect(Object object) {
 
+		System.err.println("----- OBJECT INSPECTOR ('h' for help) -----\n");
+		
 		scanner = new Scanner(System.in);
 		objectHistory = new ArrayList<Object>();
 
 		objectInstance = object;
 		objectFields = this.getFields();
+		objectMethods = this.getMethods();
 
 		while(true) {
 
@@ -41,61 +44,66 @@ public class Inspector {
 			} else if(userInput.equals("i")) {
 
 				String name = scanner.next();
-				Object temp = this.getFieldValue(name);
-				
-				if(temp != null) {
+
+				try {
 					objectHistory.add(objectInstance);
-					
-					objectInstance = temp;
+
+					objectInstance = this.getField(name).get(objectInstance);
 					objectFields = this.getFields();
-					
-				} else {
-					System.err.println("Cannot instantiate class object: " + name);
+					objectMethods = this.getMethods();
+
+				} catch (Exception e) {
+					System.err.println("Cannot instantiate class object: " + name + "\n");
 				}
-				
+
 			} else if(userInput.equals("m")) {
 
 				String name = scanner.next();
 				String value = scanner.next();
+				
+				Field field = getField(name);
 
-				this.fieldTypeModifier(name, value);
-
+				try {
+					field.set(objectInstance, this.typeModifier(field.getType(), value));
+				} catch (Exception e) {
+					System.err.println("Cannot change field value: " + name + "\n");
+				} 
+				
 			} else if(userInput.equals("c")) {
+
+				String userInput = scanner.nextLine().trim();
+				String[] args = userInput.split(" ");
+
+				this.methodInvoke(args);
 				
-				String name = scanner.next();
+			} else if(userInput.equals("w")) {
 				
-				String arg = scanner.nextLine();	
-				String[] args = arg.split(" ");
-			
-				this.methodInvoke(name, args);
+				if(objectHistory.size() > 1) {
+					
+					for(int i = 0; i < objectHistory.size(); i++) {
+						System.err.println((i + 1) + ": " + objectHistory.get(i));
+					}
+				
+					System.err.print("\nInsert the desired object number: ");
+					int number = scanner.nextInt() - 1;
+				
+					try {
+						objectInstance = objectHistory.get(number);
+						objectFields = this.getFields();
+						objectMethods = this.getMethods();
+						
+					} catch(IndexOutOfBoundsException e) {
+						System.err.println("Index number unavailable: " + e.getMessage() + "\n");
+					}
+					
+				} else {
+					System.err.println("Not enough objects in object history\n");
+				}
+				
+			} else if (userInput.equals("h")) {
+				this.printHelp();
 			}
 		}
-	}
-
-	/**
-	 * Gets the object representing the field value.
-	 * 
-	 * @param name The field name
-	 * @return A field value object
-	 */
-	private Object getFieldValue(String name) {
-
-		Object object = null;
-		
-		//Check if the field exists
-		if (objectFields.containsKey(name)) {
-
-			try {
-				object = objectFields.get(name).get(objectInstance);
-			} catch (Exception e) {
-				System.err.println("Cannot get field value: " + e.getMessage());
-			} 
-			
-		} else {
-			System.err.println("No such field: " + name);
-		}
-		
-		return object;
 	}
 
 	/**
@@ -120,27 +128,129 @@ public class Inspector {
 		}
 		return field;
 	}
-	
+
 	/**
 	 * Returns all the class fields and makes them accessible.
 	 * 
-	 * @param clazz The class object
 	 * @return All class fields
 	 */
-	private HashMap<String,Field> getFields() {
+	private ArrayList<Field> getFields() {
 
-		HashMap<String,Field> fields = new HashMap<String,Field>();
+		ArrayList<Field> fields = new ArrayList<Field>();
 
 		for(Class<?> c = objectInstance.getClass(); c != null; c = c.getSuperclass()) {
 			for(Field f : c.getDeclaredFields()){
-				if(!f.isAccessible())
+				if(!f.isAccessible()) {
 					f.setAccessible(true);
-				fields.put(f.getName(),f);
+				}
+				fields.add(f);
 			}
 		}
 		return fields;
 	}
+	
+	/**
+	 * Returns all the class methods
+	 * 
+	 * @return All class methods
+	 */
+	private ArrayList<Method> getMethods() {
 
+		ArrayList<Method> methods = new ArrayList<Method>();
+
+		for(Class<?> c = objectInstance.getClass(); c != null; c = c.getSuperclass()) {
+			for(Method m : c.getDeclaredMethods()){
+				if(!m.isAccessible()) {
+					m.setAccessible(true);
+				}
+				methods.add(m);
+			}
+		}
+		return methods;
+	}
+	
+	
+
+	/**
+	 * Creates an object with the request value and type 
+	 * 
+	 * @param expectedType The object expected type
+	 * @param value The object value
+	 * 
+	 * @return A new type of object
+	 */
+	private Object typeModifier(Class<?> expectedType, String value) {
+
+		Object modifiedObject = null;
+
+		try {
+			if(!expectedType.isPrimitive()) { //If not primitive type, use constructor by reflection (assuming string argument only constructor)
+				modifiedObject = expectedType.getConstructor(String.class).newInstance(value);
+			} else { //Otherwise use enumerate to convert to the correct type
+				modifiedObject =  Type.valueOf(expectedType.getSimpleName().toUpperCase()).convertType(value);
+			}
+		} catch (Exception e) {
+			System.err.println("Class object cannot be modified: " + e.getMessage());
+		} 
+
+		return modifiedObject;
+	}
+
+	/**
+	 * Invokes the method with the name and arguments passed
+	 * as function arguments.
+	 * 
+	 * @param args The method name and arguments
+	 */
+	private void methodInvoke(String[] args) {
+
+		ArrayList<Method> methods = this.getMethods();
+		ArrayList<Method> matchedMethods = new ArrayList<Method>();
+		Object[] convertedArgs = new Object[args.length - 1];
+
+		String methodName = args[0];
+
+		//Search for matching methods
+		for(int i = 0; i < methods.size(); i++) {
+			
+			Method method = methods.get(i);
+			method.setAccessible(true);
+			
+			if(method.getName().equals(methodName)) {
+				if(method.getParameterTypes().length == args.length - 1) {
+					matchedMethods.add(method);
+					System.err.println((i + 1) + ": " + method);			
+				} 
+			}
+		}	
+
+		if(matchedMethods.size() == 0){
+			System.err.println("The method " + methodName + " does not exist\n");
+			return;
+		}
+
+		System.err.print("\nInsert the desired method number: ");
+
+		int number = scanner.nextInt() - 1;
+		
+		try {
+			Class<?>[] methodParameters = matchedMethods.get(number).getParameterTypes();
+
+			//Convert method paremeters to the desired type
+			for(int i = 0; i < methodParameters.length; i++){
+				convertedArgs[i] = this.typeModifier(methodParameters[i], args[i + 1]);		
+			}
+		
+			Object returnValue = matchedMethods.get(number).invoke(objectInstance, convertedArgs);
+			System.err.println("Invocation result: " + returnValue + "\n");
+
+		} catch(IndexOutOfBoundsException e) {
+			System.err.println("Index number unavailable: " + e.getMessage() + "\n");			
+		} catch(Exception e) {
+			System.err.println("Cannot invoke method: " + e.getMessage() + "\n");
+		}
+	}
+	
 	/**
 	 * Prints object features: name, fields, methods
 	 */
@@ -153,10 +263,10 @@ public class Inspector {
 			System.err.println(objectInstance + " is an instance of " + objectInstance.getClass());
 		}	
 
-		System.err.println("-------------");
+		System.err.println("\n-----FIELDS-----");
 
 		//Print object fields
-		for(Field field : objectFields.values()) {	
+		for(Field field : objectFields) {	
 			try {
 				String fieldsOutput = field.getType() + " " + field.getName() + " = " + field.get(objectInstance);
 
@@ -168,52 +278,29 @@ public class Inspector {
 			} catch (Exception e) {
 				System.err.println(e.getLocalizedMessage());
 			} 
-		}	
-	}
-
-	/**
-	 * Modifies the value of the field named fieldName so that it becomes value
-	 * 
-	 * @param fieldName The object field name to be re-valued
-	 * @param value The new object field value
-	 */
-	private void fieldTypeModifier(String fieldName, String value) {
-
-		Field field = null;
-
-		try {
-			field = this.getField(fieldName);
-
-			if(!field.getType().isPrimitive()) { //If not primitive type, use constructor by reflection (assuming string argument only constructor)
-				field.set(objectInstance, field.getType().getConstructor(String.class).newInstance(value));
-
-			} else { //Otherwise use enumerate to convert to the correct type
-				field.set(objectInstance, Type.valueOf(field.getType().getSimpleName().toUpperCase()).convertType(value));
-			}
-		} catch (Exception e) {
-			System.err.println("Class object field cannot be modified: " + e.getLocalizedMessage());
-		} 
+		}
+		
+		System.err.println("\n-----METHODS-----");
+		
+		//Print object methods
+		for(Method method: objectMethods) {
+			System.err.println(method.toString());
+		}
 	}
 	
 	/**
-	 * Invokes the method with the name and arguments passed
-	 * as function arguments.
-	 * 
-	 * @param name The method name
-	 * @param args The method arguments
+	 * Prints the available command list
 	 */
-	private void methodInvoke(String name, String[] args) {
+	private void printHelp() {
 		
-		Method[] methods = objectInstance.getClass().getMethods();
-		
-		for(int i = 0, j = 0; i < methods.length; i++) {
-			if(methods[i].getName().equals(name)) {
-				if(methods[i].getParameterTypes().length == args.length - 1) {
-					j++;
-					System.err.println(j + ": " + methods[i]);
-				} 
-			}
-		}	
+		System.err.println("----- AVAILABLE COMMANDS -----");
+		System.err.println(" q ------------- quit");
+		System.err.println(" i name -------- inspect name");
+		System.err.println(" m name value -- modifies value of name");
+		System.err.println(" c name values - calls name method");
+		System.err.println(" w ------------- get the inspected object list");
+		System.err.println(" h ------------- help");	
+		System.err.println("------------------------------\n");
 	}
 
 	/**
