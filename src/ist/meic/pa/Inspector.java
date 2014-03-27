@@ -4,6 +4,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
+import java.security.InvalidParameterException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -33,6 +34,7 @@ public class Inspector {
 		objectHistory = new ArrayList<Object>();
 
 		objectInstance = object;
+		objectHistory.add(objectInstance);
 
 		while(true) {
 
@@ -41,7 +43,7 @@ public class Inspector {
 				this.printObjectFeatures(objectInstance);
 
 			} catch (Exception e) {
-				System.err.println("Can not print object " + object.getClass() + " features: " + e.getMessage());
+				System.err.println("Can not print object " + objectInstance.getClass() + " features. " + e.getMessage() + "\n");
 			}
 
 			/*** User interaction ***/
@@ -50,7 +52,7 @@ public class Inspector {
 			userInput = scanner.next();
 
 			if(userInput.equals("q")) {
-				System.err.println("Exit succefully!");
+				System.err.println("Successfully exited!");
 				return;
 
 			} else if(userInput.equals("i")) {
@@ -61,23 +63,24 @@ public class Inspector {
 				try {
 
 					tempObject = this.getField(objectInstance, name, true).get(objectInstance);
-	
-					if(!objectHistory.contains(objectInstance)) {
-						objectHistory.add(objectInstance);
-					}
 
 					objectInstance = tempObject;
+					
+					if(!objectHistory.contains(objectInstance)) {
+						objectHistory.add(objectInstance);
+					}	
+					
 				} catch (Exception e) {
-					System.err.println("Can not instantiate class object: " + name + ". " + e.getMessage() + "\n");
+					System.err.println("Can not instantiate class object " + name + ". " + e.getMessage() + "\n");
 				}
 
 			} else if(userInput.equals("m")) {
 
 				String name = scanner.next();
-				
+
 				String userInput = scanner.nextLine().trim();
 				String[] value = userInput.split(" ");	
-				
+
 				Field field = null;
 
 				try {
@@ -85,7 +88,7 @@ public class Inspector {
 					field.set(objectInstance, this.parseInput(value).get(0));
 
 				} catch (Exception e) {
-					System.err.println("Can not change field value: " + name + ". " + e.getMessage() + "\n");
+					System.err.println("Can not change field value " + name + ". " + e.getMessage() + "\n");
 				} 
 
 			} else if(userInput.equals("c")) {
@@ -94,43 +97,31 @@ public class Inspector {
 
 				String userInput = scanner.nextLine().trim();
 				String[] args = userInput.split(" ");
-
+				
 				try {
 					this.methodInvoke(name, args);
 
 				} catch (Exception e) {
-					System.err.println(e.getMessage() + "\n");
+					System.err.println("Can not invoke method " + name + ". " + e.getMessage() + "\n");
 				} 
 
 			} else if(userInput.equals("w")) {
 
-				if(objectHistory.size() > 0) {
-
-					for(int i = 0; i < objectHistory.size(); i++) {
-						System.err.println((i + 1) + ": " + objectHistory.get(i) + " - " + objectHistory.get(i).getClass());
-					}
-
-					System.err.print("\nInsert the desired object number: ");
-
-					try {
-						int number = Integer.parseInt(scanner.next());
-
-						objectInstance = objectHistory.get(number - 1);
-
-					} catch(Exception e) {
-						System.err.println("Can not obtain object: " + e.getMessage() + "\n");
-					}
-
-				} else {
-					System.err.println("Not enough objects in object history\n");
+				try {
+					this.printObjectHistory();
+				} catch (Exception e) {
+					System.err.println("Can not print " + objectInstance.getClass() + " history. " + e.getMessage() + "\n");
 				}
-
+				
 			} else if (userInput.equals("h")) {
 				this.printHelp();
 			}
 		}
 	}
 
+	/**
+	 * Populate hashMap with matching patterns
+	 */
 	private void populateTypeMap() {
 
 		typeMap = new HashMap<String, ArrayList<String>>();
@@ -160,8 +151,8 @@ public class Inspector {
 	 * @throws IllegalAccessException 
 	 * @throws IllegalArgumentException 
 	 */
-	private Field getField(Object object, String name, Boolean read) throws NullPointerException, NoSuchFieldException, 
-		IllegalArgumentException, IllegalAccessException {
+	private Field getField(Object object, String name, Boolean read) throws NullPointerException,
+	IllegalArgumentException, IllegalAccessException, NoSuchFieldException {
 
 		Field field = null;
 
@@ -175,10 +166,10 @@ public class Inspector {
 		}
 
 		if(field == null) {
-			throw new NoSuchFieldException("No such field");
-			
+			throw new NoSuchFieldException("No such field.");
+
 		} else if(field.get(object) == null && read == true) {
-			throw new NullPointerException("Null field value");
+			throw new NullPointerException("Null field value.");
 		}
 
 		return field;
@@ -238,28 +229,76 @@ public class Inspector {
 	 * @throws IllegalArgumentException 
 	 */
 	private void methodInvoke(String methodName, String[] args) throws IllegalArgumentException, SecurityException, InstantiationException, 
-		IllegalAccessException, InvocationTargetException, NoSuchMethodException {
+	IllegalAccessException, InvocationTargetException, NoSuchMethodException {
 
 		ArrayList<Object> convertedArgsArray = this.parseInput(args);
 		Object[] convertedArgs = convertedArgsArray.toArray(new Object[convertedArgsArray.size()]);
-		Class<?>[] convertedClasses = new Class<?>[convertedArgs.length];
+	
+		Method matchedMethod = this.getMatchedMethod(methodName, convertedArgs);
+		Object returnValue = matchedMethod.invoke(objectInstance, convertedArgs);
 
-		for(int i = 0; i < convertedArgs.length; i++) {
-			convertedClasses[i] = convertedArgs[i].getClass();
-		}
+		System.err.println("\n------ METHOD INVOCATION INSPECTION ------");
+		this.printObjectFeatures(returnValue);
 
-		try {
-
-			Method matchedMethod = objectInstance.getClass().getMethod(methodName, convertedClasses);
-			Object returnValue = matchedMethod.invoke(objectInstance, convertedArgs);
-
-			System.err.println("\n------ RESULT INSPECTION ------");
-			this.printObjectFeatures(returnValue);
-
-		} catch(Exception e) {
-			System.err.println("Cannot invoke method: " + e.getMessage() + "\n");
-		}
 		return;
+	}
+
+	/**
+	 * Gets the method with the name and parameters
+	 * passed as arguments.
+	 * 
+	 * @param methodName The method name
+	 * @param convertedParameters The method parameters
+	 * 
+	 * @return The matched method
+	 * 
+	 * @throws NoSuchMethodException
+	 * @throws InvalidParameterException
+	 */
+	private Method getMatchedMethod(String methodName, Object[] convertedParameters) throws NoSuchMethodException, InvalidParameterException {
+
+		int highestMatch = 0;
+		int highestMatchIndex = 0;
+
+		ArrayList<Method> matchedMethods = new ArrayList<Method>();
+		
+		//Search for matching methods
+		for(Method method: this.getMethods(objectInstance)) {
+			
+			if(method.getName().equals(methodName)) {
+				if(method.getParameterTypes().length == convertedParameters.length) {
+					method.setAccessible(true);
+					matchedMethods.add(method);	
+				}
+			}
+		}
+
+		if(matchedMethods.size() == 0){
+			throw new NoSuchMethodException("No such method or wrong number of parameters.");
+		}
+
+		for(int i = 0; i < matchedMethods.size(); i++) {
+
+			Class<?>[] methodParameters = matchedMethods.get(i).getParameterTypes();
+			int tempMatch = 0;
+
+			for(int j = 0; j < methodParameters.length; j++) {
+				if(convertedParameters[j].getClass().getSimpleName().toLowerCase().contains(methodParameters[j].getSimpleName().toLowerCase())) {
+					tempMatch++;
+				}
+			}
+
+			if(tempMatch >= highestMatch) {
+				highestMatch = tempMatch;
+				highestMatchIndex = i;
+			}
+		}
+		
+		if(highestMatch != convertedParameters.length) {
+			throw new InvalidParameterException("Invalid parameter types.");
+		}
+
+		return matchedMethods.get(highestMatchIndex);
 	}
 
 	/**
@@ -267,21 +306,33 @@ public class Inspector {
 	 * it to the corresponding data types
 	 * 
 	 * @param input The input to parse
+	 * 
 	 * @return The parsed input as an arraylist
 	 */
 	private ArrayList<Object> parseInput(String[] input) {
 
 		ArrayList<Object> convertedInput = new ArrayList<Object>();
-
+		
+		//Check if arguments exist (non-arg methods case)
+		if(input.length == 1 && input[0].equals("")) {
+			return convertedInput;
+		}
+		
 		for(int i = 0; i < input.length; i++) {
 
 			int length = input[i].length();
 			boolean match = false;
 
+			//Special null case
+			if(input[i].equals("null")) {
+				convertedInput.add(null);
+				continue;
+			}
+
 			for(Entry<String, ArrayList<String>> entry : typeMap.entrySet()) {
 
-				if(entry.getValue().contains(input[i].substring(0, 1)) //Start with a certain string
-						|| entry.getValue().contains(String.valueOf(input[i].charAt(0))) && entry.getValue().contains(String.valueOf(input[i].charAt(length - 1))) //Start and terminate with a certain char
+				if(entry.getValue().contains(input[i].substring(0, 1))  //Start with a certain string
+						|| entry.getValue().contains(String.valueOf(input[i].charAt(0))) && entry.getValue().contains(String.valueOf(input[i].charAt(length - 1)))//Start and terminate with a certain char
 						|| entry.getValue().contains(input[i].substring(length - 1))) { //Terminate with a certain string
 					Object result = Type.valueOf(entry.getKey()).convertType(input, i);
 
@@ -293,9 +344,12 @@ public class Inspector {
 				} 
 			}
 
+			//Float "." case
 			if(input[i].contains(".") && !match) {
 				convertedInput.add(Type.FLOATP.convertType(input, i));
-			} else if (!match){
+
+			//Otherwise we assume it's an integer	
+			} else if (!match){			
 				convertedInput.add(Type.INT.convertType(input, i));
 			}
 		}
@@ -341,6 +395,29 @@ public class Inspector {
 	}
 
 	/**
+	 * Prints object history
+	 * 
+	 * @throws Exception, NumberFormatException 
+	 */
+	private void printObjectHistory() throws Exception, NumberFormatException {
+
+		if(objectHistory.size() > 0) {
+
+			for(int i = 0; i < objectHistory.size(); i++) {
+				System.err.println((i + 1) + ": " + objectHistory.get(i) + " - " + objectHistory.get(i).getClass());
+			}
+
+			System.err.print("\nInsert the desired object number: ");
+			int number = Integer.parseInt(scanner.next()) - 1;
+
+			objectInstance = objectHistory.get(number);
+
+		} else {
+			throw new Exception("Not enough objects in object history");
+		}	
+	}
+
+	/**
 	 * Prints the available command list
 	 */
 	private void printHelp() {
@@ -348,9 +425,9 @@ public class Inspector {
 		System.err.println("---------------- AVAILABLE COMMANDS --------------");
 		System.err.println(" q ............. quit");
 		System.err.println(" i name ........ inspect name");
-		System.err.println(" m name value .. modifies value of name");
-		System.err.println(" c name values . calls name method");
-		System.err.println(" w ............. get the inspected object history");
+		System.err.println(" m name value .. modifies field value named name");
+		System.err.println(" c name values . calls method with values");
+		System.err.println(" w ............. gets the inspected object history");
 		System.err.println("--------------------------------------------------\n");
 	}
 

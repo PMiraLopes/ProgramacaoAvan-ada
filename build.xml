@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+
+<project basedir="." default="build" name="Inspector">
+    
+    <property name="src.dir" value="src"/>
+    <property name="build.dir" value="build"/>
+    <property name="build.classes.dir" value="${build.dir}/classes"/>
+    <property name="run.mainclass" value="ist.meic.pa.InputReader" />
+   
+    
+ 	<path id="project.classpath">
+        <pathelement location="${build.classes.dir}" />
+    </path>
+       
+    <target name="init">
+        <mkdir dir="${build.dir}"/>
+        <mkdir dir="${build.classes.dir}"/>
+    </target>
+    
+     <target name="clean"
+         description = "Delete build directory" >
+        <delete dir="${build.dir}"/>
+    </target>    
+    
+    <target name="prepare-resources" depends="init">
+        <copy todir="${build.classes.dir}" overwrite="true">
+            <fileset dir="${src.dir}" excludes="**/*.java" />
+        </copy>
+        <replace dir="${build.classes.dir}" excludes="**/*.class" summary="true">
+             <replacefilter token="@example-token@" value="${example-property}" />
+        </replace>
+    </target>
+    
+   <target name="compile" depends="init,prepare-resources"
+        description="Compile source code" >
+        <javac srcdir="${src.dir}"
+            destdir="${build.classes.dir}"
+            includeantruntime="false" debug="true">
+            <classpath refid="project.classpath" />
+        </javac>
+        <jar destfile="inspector.jar" basedir="${build.classes.dir}" />
+    </target>
+    
+   <target name="run" depends="compile"
+       description="Run Inspector" >
+       <java classname="${run.mainclass}" fork="true">
+           <classpath refid="project.classpath" />
+       </java>
+   </target>
+
+    <target name="build" depends="compile"
+        description="Build project" />
+
+    <target name="rebuild" depends="clean,build" />
+    
+</project>
