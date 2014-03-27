@@ -3,7 +3,7 @@ package a;
 public class Teste {
 	
 	private int i = 0;
-	private String teste = "OLAAAAA!";
+	private String teste = "ola a todos os meus amigos!";
 	public long f = 10L;
 	
 	public Teste () {}
