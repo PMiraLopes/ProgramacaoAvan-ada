@@ -65,14 +65,14 @@ public class Inspector {
 					tempObject = this.getField(objectInstance, name, true).get(objectInstance);
 
 					objectInstance = tempObject;
-					
+
 					if(!objectHistory.contains(objectInstance)) {
 						objectHistory.add(objectInstance);
 					}	
-					
+
 				} catch (Exception e) {
 					System.err.println("Can not instantiate class object " + name + ". " + e.getMessage() + "\n");
-				}
+				}	
 
 			} else if(userInput.equals("m")) {
 
@@ -85,7 +85,7 @@ public class Inspector {
 
 				try {
 					field = this.getField(objectInstance, name, false);
-					field.set(objectInstance, this.parseInput(value).get(0));
+					this.setField(field, value);
 
 				} catch (Exception e) {
 					System.err.println("Can not change field value " + name + ". " + e.getMessage() + "\n");
@@ -97,7 +97,7 @@ public class Inspector {
 
 				String userInput = scanner.nextLine().trim();
 				String[] args = userInput.split(" ");
-				
+
 				try {
 					this.methodInvoke(name, args);
 
@@ -112,7 +112,7 @@ public class Inspector {
 				} catch (Exception e) {
 					System.err.println("Can not print " + objectInstance.getClass() + " history. " + e.getMessage() + "\n");
 				}
-				
+
 			} else if (userInput.equals("h")) {
 				this.printHelp();
 			}
@@ -174,6 +174,27 @@ public class Inspector {
 
 		return field;
 	}
+	
+	/**
+	 * Sets a new value for a certain object field
+	 * 
+	 * @param field The field
+	 * @param value The value to be set
+	 * 
+	 * @throws IllegalArgumentException
+	 * @throws IllegalAccessException
+	 */
+	private void setField(Field field, String[] value) throws IllegalArgumentException, IllegalAccessException {
+
+		Object convertedArg = this.parseInput(value).get(0);
+
+		if(convertedArg.getClass().getSimpleName().toLowerCase().contains(field.getType().getSimpleName().toLowerCase())) {
+			field.set(objectInstance, convertedArg);
+		}
+		else {
+			throw new InvalidParameterException("Invalid value type, " + convertedArg.getClass() + " to " + field.getType());
+		}
+	}
 
 	/**
 	 * Returns all the class fields and makes them accessible.
@@ -233,11 +254,12 @@ public class Inspector {
 
 		ArrayList<Object> convertedArgsArray = this.parseInput(args);
 		Object[] convertedArgs = convertedArgsArray.toArray(new Object[convertedArgsArray.size()]);
-	
+
 		Method matchedMethod = this.getMatchedMethod(methodName, convertedArgs);
 		Object returnValue = matchedMethod.invoke(objectInstance, convertedArgs);
 
 		System.err.println("\n------ METHOD INVOCATION INSPECTION ------");
+		System.err.println("Return value: " + returnValue + ".\n");
 		this.printObjectFeatures(returnValue);
 
 		return;
@@ -261,10 +283,10 @@ public class Inspector {
 		int highestMatchIndex = 0;
 
 		ArrayList<Method> matchedMethods = new ArrayList<Method>();
-		
+
 		//Search for matching methods
 		for(Method method: this.getMethods(objectInstance)) {
-			
+
 			if(method.getName().equals(methodName)) {
 				if(method.getParameterTypes().length == convertedParameters.length) {
 					method.setAccessible(true);
@@ -293,7 +315,7 @@ public class Inspector {
 				highestMatchIndex = i;
 			}
 		}
-		
+
 		if(highestMatch != convertedParameters.length) {
 			throw new InvalidParameterException("Invalid parameter types.");
 		}
@@ -312,12 +334,12 @@ public class Inspector {
 	private ArrayList<Object> parseInput(String[] input) {
 
 		ArrayList<Object> convertedInput = new ArrayList<Object>();
-		
+
 		//Check if arguments exist (non-arg methods case)
 		if(input.length == 1 && input[0].equals("")) {
 			return convertedInput;
 		}
-		
+
 		for(int i = 0; i < input.length; i++) {
 
 			int length = input[i].length();
@@ -348,8 +370,7 @@ public class Inspector {
 			if(input[i].contains(".") && !match) {
 				convertedInput.add(Type.FLOATP.convertType(input, i));
 
-			//Otherwise we assume it's an integer	
-			} else if (!match){			
+			} else if (!match){	//Otherwise we assume it's an integer		
 				convertedInput.add(Type.INT.convertType(input, i));
 			}
 		}
