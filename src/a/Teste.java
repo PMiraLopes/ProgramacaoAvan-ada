@@ -2,8 +2,8 @@ package a;
 
 public class Teste {
 	
-	private int i = 0;
-	private String teste = "ola a todos os meus amigos!";
+	private int i;
+	private String teste;
 	public long f = 10L;
 	
 	public Teste () {}

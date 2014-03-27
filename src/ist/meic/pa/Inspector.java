@@ -41,7 +41,7 @@ public class Inspector {
 				this.printObjectFeatures(objectInstance);
 
 			} catch (Exception e) {
-				System.err.println("Cannot print object " + object.getClass() + " features: " + e.getMessage());
+				System.err.println("Can not print object " + object.getClass() + " features: " + e.getMessage());
 			}
 
 			/*** User interaction ***/
@@ -60,31 +60,32 @@ public class Inspector {
 
 				try {
 
-					tempObject = this.getField(objectInstance, name).get(objectInstance);
-
+					tempObject = this.getField(objectInstance, name, true).get(objectInstance);
+	
 					if(!objectHistory.contains(objectInstance)) {
 						objectHistory.add(objectInstance);
 					}
 
 					objectInstance = tempObject;
-
 				} catch (Exception e) {
-					System.err.println("Cannot instantiate class object " + name + ". " + e.getMessage() + "\n");
+					System.err.println("Can not instantiate class object: " + name + ". " + e.getMessage() + "\n");
 				}
 
 			} else if(userInput.equals("m")) {
 
 				String name = scanner.next();
-				String[] value = new String[]{scanner.next()};	
+				
+				String userInput = scanner.nextLine().trim();
+				String[] value = userInput.split(" ");	
 				
 				Field field = null;
 
 				try {
-					field = this.getField(objectInstance, name);
+					field = this.getField(objectInstance, name, false);
 					field.set(objectInstance, this.parseInput(value).get(0));
 
 				} catch (Exception e) {
-					System.err.println("Cannot change field value " + name + ". " + e.getMessage() + "\n");
+					System.err.println("Can not change field value: " + name + ". " + e.getMessage() + "\n");
 				} 
 
 			} else if(userInput.equals("c")) {
@@ -117,7 +118,7 @@ public class Inspector {
 						objectInstance = objectHistory.get(number - 1);
 
 					} catch(Exception e) {
-						System.err.println("Cannot obtain object: " + e.getMessage() + "\n");
+						System.err.println("Can not obtain object: " + e.getMessage() + "\n");
 					}
 
 				} else {
@@ -146,15 +147,21 @@ public class Inspector {
 
 	/**
 	 * Returns the field with the name passed as argument
-	 * and makes it accessible. If the field doesn't exist
-	 * returns null.
+	 * and makes it accessible.
 	 * 
 	 * @param name The field name we are looking for
 	 * @param object The object containing the desired field
+	 * @param read The read flag to distinguish if field is being read or written
+	 * 
 	 * @return The field
+	 * 
 	 * @throws NoSuchFieldException 
+	 * @throws NullPointerException
+	 * @throws IllegalAccessException 
+	 * @throws IllegalArgumentException 
 	 */
-	private Field getField(Object object, String name) throws NoSuchFieldException {
+	private Field getField(Object object, String name, Boolean read) throws NullPointerException, NoSuchFieldException, 
+		IllegalArgumentException, IllegalAccessException {
 
 		Field field = null;
 
@@ -168,7 +175,10 @@ public class Inspector {
 		}
 
 		if(field == null) {
-			throw new NoSuchFieldException("No such field: " + name);
+			throw new NoSuchFieldException("No such field");
+			
+		} else if(field.get(object) == null && read == true) {
+			throw new NullPointerException("Null field value");
 		}
 
 		return field;
@@ -177,7 +187,7 @@ public class Inspector {
 	/**
 	 * Returns all the class fields and makes them accessible.
 	 * 
-	 * @return All class fields
+	 * @return All class fields as an arraylist
 	 */
 	private ArrayList<Field> getFields(Object object) {
 
@@ -197,7 +207,7 @@ public class Inspector {
 	/**
 	 * Returns all the class methods
 	 * 
-	 * @return All class methods
+	 * @return All class methods as an arraylist
 	 */
 	private ArrayList<Method> getMethods(Object object) {
 
@@ -217,7 +227,8 @@ public class Inspector {
 	/**
 	 * Invokes the method with the requested name and arguments
 	 * 
-	 * @param args The method name and arguments
+	 * @param methodName The method named
+	 * @param args The method arguments
 	 * 
 	 * @throws NoSuchMethodException 
 	 * @throws InvocationTargetException 
@@ -248,9 +259,16 @@ public class Inspector {
 		} catch(Exception e) {
 			System.err.println("Cannot invoke method: " + e.getMessage() + "\n");
 		}
-
+		return;
 	}
 
+	/**
+	 * Parses the input received as argument and converts
+	 * it to the corresponding data types
+	 * 
+	 * @param input The input to parse
+	 * @return The parsed input as an arraylist
+	 */
 	private ArrayList<Object> parseInput(String[] input) {
 
 		ArrayList<Object> convertedInput = new ArrayList<Object>();
@@ -278,7 +296,6 @@ public class Inspector {
 			if(input[i].contains(".") && !match) {
 				convertedInput.add(Type.FLOATP.convertType(input, i));
 			} else if (!match){
-				System.out.println("INT");
 				convertedInput.add(Type.INT.convertType(input, i));
 			}
 		}
@@ -396,6 +413,7 @@ public class Inspector {
 			public Object convertType(String[] input, int index) {
 
 				String stringResult = "";
+				boolean terminates = false;
 
 				//Re-check for starting substring to avoid consuming the same input
 				if(input[index].startsWith("\"")) { 
@@ -404,12 +422,13 @@ public class Inspector {
 
 						if(input[i].endsWith("\"")) {
 							stringResult += " " + input[i];
+							terminates = true;
 							break;
 						}
 
 						stringResult += " " + input[i];
 					}
-					return stringResult.trim().replace("\"", "");
+					return ((terminates) ? stringResult.trim().replace("\"", "") : null);		
 				}
 				else {
 					return null;
