@@ -259,7 +259,7 @@ public class Inspector {
 		Method matchedMethod = this.getMatchedMethod(methodName, convertedArgs);
 		Object returnValue = matchedMethod.invoke(objectInstance, convertedArgs);
 
-		System.err.println("\n------ METHOD INVOCATION INSPECTION ------");
+		System.err.println("\n------ METHOD INVOCATION INSPECTION ------\n");
 		System.err.println("Return value: " + returnValue + ".\n");
 		this.printObjectFeatures(returnValue);
 
