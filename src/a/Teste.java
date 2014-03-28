@@ -5,6 +5,7 @@ public class Teste {
 	private int i;
 	private String teste;
 	public long f = 10L;
+	private boolean meh;
 	
 	public Teste () {}
 	

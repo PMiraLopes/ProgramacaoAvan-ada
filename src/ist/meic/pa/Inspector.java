@@ -39,11 +39,10 @@ public class Inspector {
 		while(true) {
 
 			try {
-				System.err.println("------ CURRENT OBJECT INSPECTION ------\n");
 				this.printObjectFeatures(objectInstance);
 
 			} catch (Exception e) {
-				System.err.println("Can not print object " + objectInstance.getClass() + " features. " + e.getMessage() + "\n");
+				System.err.println("Can not print object " + objectInstance + " features. " + e.getMessage() + "\n");
 			}
 
 			/*** User interaction ***/
@@ -109,6 +108,7 @@ public class Inspector {
 
 				try {
 					this.printObjectHistory();
+
 				} catch (Exception e) {
 					System.err.println("Can not print " + objectInstance.getClass() + " history. " + e.getMessage() + "\n");
 				}
@@ -126,6 +126,7 @@ public class Inspector {
 
 		typeMap = new HashMap<String, ArrayList<String>>();
 
+		typeMap.put("BOOLEAN", new ArrayList<String>(Arrays.asList("true", "false")));
 		typeMap.put("FLOAT", new ArrayList<String>(Arrays.asList("f", "F")));
 		typeMap.put("FLOATP", new ArrayList<String>(Arrays.asList(".")));
 		typeMap.put("DOUBLE",new ArrayList<String>(Arrays.asList("d", "D")));
@@ -355,7 +356,8 @@ public class Inspector {
 
 				if(entry.getValue().contains(input[i].substring(0, 1))  //Start with a certain string
 						|| entry.getValue().contains(String.valueOf(input[i].charAt(0))) && entry.getValue().contains(String.valueOf(input[i].charAt(length - 1)))//Start and terminate with a certain char
-						|| entry.getValue().contains(input[i].substring(length - 1))) { //Terminate with a certain string
+						|| entry.getValue().contains(input[i].substring(length - 1)) //Terminate with a certain string
+						|| entry.getValue().contains(input[i])) { //Boolean type
 					Object result = Type.valueOf(entry.getKey()).convertType(input, i);
 
 					if(result != null) { //Check result validity
@@ -370,8 +372,21 @@ public class Inspector {
 			if(input[i].contains(".") && !match) {
 				convertedInput.add(Type.FLOATP.convertType(input, i));
 
-			} else if (!match){	//Otherwise we assume it's an integer		
-				convertedInput.add(Type.INT.convertType(input, i));
+			} else if (!match){	//Check if object exists in object history, otherwise assume integer
+				
+				boolean objectMatch = false;
+				
+				for(Object object : objectHistory) {
+					if(object.getClass().getName().equals(input[i])) {
+						convertedInput.add(input[i]);
+						objectMatch = true;
+						break;
+					}
+				}
+				
+				if(!objectMatch) {
+					convertedInput.add(Type.INT.convertType(input, i));
+				}
 			}
 		}
 		return convertedInput;		
@@ -385,6 +400,8 @@ public class Inspector {
 	 */
 	private void printObjectFeatures(Object object) throws IllegalArgumentException, IllegalAccessException {
 
+		System.err.println("------ CURRENT OBJECT INSPECTION ------\n");
+		
 		//Print object name and class instance
 		if(object.toString().equals("")) {
 			System.err.println("Instance of " + objectInstance.getClass());
@@ -392,7 +409,7 @@ public class Inspector {
 			System.err.println(objectInstance + " is an instance of " + object.getClass());
 		}	
 
-		System.err.println("\n------ FIELDS ------");
+		System.err.println("\n------ FIELDS ------\n");
 
 		//Print object fields
 		for(Field field : this.getFields(object)) {	
@@ -406,7 +423,7 @@ public class Inspector {
 			}
 		}
 
-		System.err.println("\n------ METHODS ------");
+		System.err.println("\n------ METHODS ------\n");
 
 		//Print object methods
 		for(Method method: this.getMethods(object)) {
@@ -427,9 +444,9 @@ public class Inspector {
 			for(int i = 0; i < objectHistory.size(); i++) {
 				System.err.println((i + 1) + ": " + objectHistory.get(i) + " - " + objectHistory.get(i).getClass());
 			}
-
+			
 			System.err.print("\nInsert the desired object number: ");
-			int number = Integer.parseInt(scanner.next()) - 1;
+			int number = scanner.nextInt() - 1;
 
 			objectInstance = objectHistory.get(number);
 
@@ -443,13 +460,23 @@ public class Inspector {
 	 */
 	private void printHelp() {
 
-		System.err.println("---------------- AVAILABLE COMMANDS --------------");
+		System.err.println("---------------- AVAILABLE COMMANDS ----------------\n");
 		System.err.println(" q ............. quit");
 		System.err.println(" i name ........ inspect name");
 		System.err.println(" m name value .. modifies field value named name");
 		System.err.println(" c name values . calls method with values");
-		System.err.println(" w ............. gets the inspected object history");
-		System.err.println("--------------------------------------------------\n");
+		System.err.println(" w ............. gets the inspected object history\n");
+		System.err.println("-------------------- TYPE INPUT --------------------\n");
+		System.err.println(" Boolean input: Use true or false notation");
+		System.err.println(" String input: Use \\\" string value \\\" notation");
+		System.err.println(" Float input:  Use . or f or F notation");
+		System.err.println(" Double input: Use d or D notation ");
+		System.err.println(" Long input:   Use l or L notation");
+		System.err.println(" Short input:  Use s or S notation");
+		System.err.println(" Byte input:   Use [ byte value ] notation");
+		System.err.println(" Char input:   Use ' char value ' notation");
+		System.err.println(" Int input:    Use integer value directly");
+		System.err.println("----------------------------------------------------\n");
 	}
 
 	/**
@@ -460,6 +487,13 @@ public class Inspector {
 	 */
 	public enum Type {
 
+		BOOLEAN {
+			@Override
+			public Object convertType(String[] input, int index) {
+				return Boolean.parseBoolean(input[index]);
+			}
+		},
+		
 		INT {
 			@Override
 			public Object convertType(String[] input, int index) {
